@@ -1,4 +1,4 @@
-name: Build KernelSU Kernel Module
+Name: Build KernelSU Kernel Module
 
 on:
   workflow_call:
@@ -34,6 +34,19 @@ jobs:
     steps:
     - name: Checkout source code
       uses: actions/checkout@v6
+
+    # ==========================================
+    # 💉 增加的 Vivo 魔数注入步骤
+    # 限制只在 KMI 包含 "5.10" 的时候执行，避免破坏 5.15/6.1 的编译
+    # ==========================================
+    - name: Inject Vivo Vermagic
+      if: contains(inputs.kmi, '5.10')
+      run: |
+        echo "=== 正在注入 Vivo 专属魔数 ==="
+        # 在容器中查找 vermagic.h 并强制替换为目标魔数
+        find / -name "vermagic.h" -type f 2>/dev/null -exec sed -i 's/#define VERMAGIC_STRING.*/#define VERMAGIC_STRING "5.10.233-android12-9-g28b19682acbc-dirty SMP preempt mod_unload modversions vivo aarch64"/' {} +
+        echo "=== Vivo 魔数注入完成 ==="
+    # ==========================================
 
     - name: Build kernelsu.ko
       env:
