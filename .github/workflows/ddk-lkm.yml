@@ -1,4 +1,4 @@
-name: Build KernelSU Kernel Module
+Name: Build KernelSU Kernel Module
 
 on:
   workflow_call:
@@ -41,6 +41,22 @@ jobs:
         TARGET=$(find /opt/ddk -path "*/include/linux/vermagic.h" | head -n 1)
         echo '#undef VERMAGIC_STRING' >> "$TARGET"
         echo '#define VERMAGIC_STRING "5.10.233-android12-9-g28b19682acbc-dirty SMP preempt mod_unload modversions vivo aarch64"' >> "$TARGET"
+
+    - name: Inject Vivo 6.1 Custom Vermagic
+      if: contains(inputs.kmi, '6.1')
+      run: |
+        VERMAGIC_FILE=$(find /opt/ddk -path "*/include/linux/vermagic.h" | head -n 1)
+        if [ -n "$VERMAGIC_FILE" ]; then
+          echo "" >> "$VERMAGIC_FILE"
+          echo "#undef VERMAGIC_STRING" >> "$VERMAGIC_FILE"
+          echo '#define VERMAGIC_STRING "6.1.145-android14-11-maybe-dirty SMP preempt mod_unload modversions vivo aarch64"' >> "$VERMAGIC_FILE"
+        fi
+        UTS_FILE=$(find /opt/ddk -path "*/include/generated/utsrelease.h" | head -n 1)
+        if [ -n "$UTS_FILE" ]; then
+          echo "" >> "$UTS_FILE"
+          echo "#undef UTS_RELEASE" >> "$UTS_FILE"
+          echo '#define UTS_RELEASE "6.1.145-android14-11-maybe-dirty"' >> "$UTS_FILE"
+        fi
 
     - name: Build kernelsu.ko
       env:
