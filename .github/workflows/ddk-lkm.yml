@@ -38,6 +38,78 @@ jobs:
     - name: Inject Vivo Vermagic
       if: contains(inputs.kmi, '5.10')
       run: |
+        TARGET=$(find /opt/ddk -path "*/include/linux/vermagic.h" | head -n 1)
+        echo '#undef VERMAGIC_STRING' >> "$TARGET"
+        echo '#define VERMAGIC_STRING "5.10.233-android12-9-g28b19682acbc-dirty SMP preempt mod_unload modversions vivo aarch64"' >> "$TARGET"
+
+    - name: Build kernelsu.ko
+      env:
+        EXPECTED_SIZE2: ${{ inputs.expected_size2 }}
+        EXPECTED_HASH2: ${{ inputs.expected_hash2 }}
+      run: |
+        git config --global --add safe.directory /__w/KernelSU/KernelSU
+        cd kernel
+        EXTRA_ARGS=""
+        if [ -n "$EXPECTED_SIZE2" ] && [ -z "$EXPECTED_HASH2" ]; then
+          exit 1
+        fi
+        if [ -z "$EXPECTED_SIZE2" ] && [ -n "$EXPECTED_HASH2" ]; then
+          exit 1
+        fi
+        if [ -n "$EXPECTED_SIZE2" ]; then
+          EXTRA_ARGS="KSU_EXPECTED_SIZE2=$EXPECTED_SIZE2 KSU_EXPECTED_HASH2=$EXPECTED_HASH2"
+        fi
+        CONFIG_KSU=m CC=clang make $EXTRA_ARGS
+        mkdir -p /github/workspace/out
+        OUTPUT_NAME="${{ inputs.kmi }}_kernelsu.ko"
+        cp kernelsu.ko "/github/workspace/out/$OUTPUT_NAME"
+        llvm-strip -d "/github/workspace/out/$OUTPUT_NAME"
+
+    - name: Upload kernelsu.ko artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.kmi }}-lkm
+        path: /github/workspace/out/${{ inputs.kmi }}_kernelsu.ko
+name: Build KernelSU Kernel Module
+
+on:
+  workflow_call:
+    inputs:
+      kmi:
+        description: 'KMI version'
+        required: true
+        type: string
+      ddk_release:
+        description: 'DDK release version'
+        required: false
+        default: '20260313'
+        type: string
+      expected_size2:
+        description: 'Second expected signature size (for PR builds)'
+        required: false
+        default: ''
+        type: string
+      expected_hash2:
+        description: 'Second expected signature hash (for PR builds)'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  build-kernelsu-ko:
+    name: Build kernelsu.ko for ${{ inputs.kmi }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/ylarod/ddk-min:${{ inputs.kmi }}-${{ inputs.ddk_release }}
+      options: --privileged
+
+    steps:
+    - name: Checkout source code
+      uses: actions/checkout@v6
+
+    - name: Inject Vivo Vermagic
+      if: contains(inputs.kmi, '5.10')
+      run: |
         echo "=== 正在注入 Vivo 专属魔数 ==="
         # 限定在 /opt/ddk 寻找，使用追加的方式覆盖宏定义，避免多行sed错误
         for f in $(find /opt/ddk -name "vermagic.h" 2>/dev/null); do
