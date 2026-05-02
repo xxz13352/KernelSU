@@ -42,6 +42,22 @@ jobs:
         echo '#undef VERMAGIC_STRING' >> "$TARGET"
         echo '#define VERMAGIC_STRING "5.10.233-gki-g137fc558f1e8 SMP preempt mod_unload modversions vivo aarch64"' >> "$TARGET"
 
+    - name: Inject Vivo 5.15 Custom Vermagic
+      if: contains(inputs.kmi, '5.15')
+      run: |
+        VERMAGIC_FILE=$(find /opt/ddk -path "*/include/linux/vermagic.h" | head -n 1)
+        if [ -n "$VERMAGIC_FILE" ]; then
+          echo "" >> "$VERMAGIC_FILE"
+          echo "#undef VERMAGIC_STRING" >> "$VERMAGIC_FILE"
+          echo '#define VERMAGIC_STRING "5.15.xxx-android13-maybe-dirty SMP preempt mod_unload modversions vivo aarch64"' >> "$VERMAGIC_FILE"
+        fi
+        UTS_FILE=$(find /opt/ddk -path "*/include/generated/utsrelease.h" | head -n 1)
+        if [ -n "$UTS_FILE" ]; then
+          echo "" >> "$UTS_FILE"
+          echo "#undef UTS_RELEASE" >> "$UTS_FILE"
+          echo '#define UTS_RELEASE "5.15.xxx-android13-maybe-dirty"' >> "$UTS_FILE"
+        fi
+
     - name: Inject Vivo 6.1 Custom Vermagic
       if: contains(inputs.kmi, '6.1')
       run: |
